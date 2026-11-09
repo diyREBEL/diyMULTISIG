@@ -1,7 +1,7 @@
-# Veröffentlicht den Ordner app/ auf GitHub Pages.
-# Vorher wird geprüft, dass app/lib/vendor.js exakt aus den gepinnten Quellen in vendor-src/ entsteht.
+# Prüft bei jedem Push, dass app/lib/vendor.js exakt aus den gepinnten Quellen in vendor-src/ entsteht
+# (reproduzierbarer Build). Veröffentlicht wird über GitHub Pages "Deploy from a branch" (main, Hauptordner).
 # Alle Actions sind auf einen festen Commit gepinnt (Schutz gegen nachträglich veränderte Versionen).
-name: Pages veröffentlichen
+name: Build prüfen
 
 on:
   push:
@@ -11,12 +11,8 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: pages
-  cancel-in-progress: false
-
 jobs:
-  build:
+  vendor:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -31,19 +27,3 @@ jobs:
           npm ci --ignore-scripts
           node build.mjs
           git diff --exit-code -- ../app/lib/vendor.js
-      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
-        with:
-          path: app
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    permissions:
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

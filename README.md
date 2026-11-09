@@ -25,18 +25,15 @@ Die ausführliche Erklärung aller Dateien und Code-Zeilen steht in [ERKLAERUNG.
 
 ## Veröffentlichung auf GitHub Pages
 
-Die App liegt im Ordner `app/`. Der Workflow `.github/workflows/pages.yml` veröffentlicht diesen Ordner bei
-jedem Push auf `main`. Vorher baut er `app/lib/vendor.js` aus den gepinnten Quellen neu und bricht ab, wenn das
-Ergebnis nicht byte-genau mit der Datei im Repository übereinstimmt. Die verwendeten GitHub-Actions sind auf
-feste Commits gepinnt.
+Einstellung: Settings → Pages → Build and deployment → **Deploy from a branch**, Branch `main`, Ordner `/ (root)`.
+Das Repository muss öffentlich sein (mit GitHub Free gibt es Pages nur für öffentliche Repositories).
 
-Einmalig einrichten:
-
-1. Repository öffentlich machen: Settings → General → Danger Zone → Change visibility → Public.
-   (Mit GitHub Free gibt es Pages nur für öffentliche Repositories. Das Repository enthält keine Geheimnisse.)
-2. Settings → Pages → Build and deployment → Source: **GitHub Actions**.
-3. Actions → "Pages veröffentlichen" → "Run workflow" (oder einen neuen Commit pushen).
-4. Adresse: <https://diyrebel.github.io/diyMULTISIG/> – auf dem Handy öffnen → "Zum Home-Bildschirm hinzufügen".
+- Adresse: <https://diyrebel.github.io/diyMULTISIG/> – die Seite `index.html` im Hauptordner leitet sofort zur
+  App im Ordner `app/` weiter. Auf dem Handy die App öffnen → "Zum Home-Bildschirm hinzufügen".
+- `.nojekyll` schaltet die Jekyll-Verarbeitung von GitHub ab: Alle Dateien werden unverändert ausgeliefert.
+- Der Workflow `.github/workflows/build-check.yml` baut bei jedem Push `app/lib/vendor.js` aus den gepinnten
+  Quellen neu und schlägt fehl, wenn das Ergebnis nicht byte-genau mit der Datei im Repository übereinstimmt.
+  Die verwendeten GitHub-Actions sind auf feste Commits gepinnt.
 
 **Gemeinsame Adresse:** Alle Pages-Projekte unter `diyrebel.github.io` teilen sich den Browser-Speicher.
 Weil die App nichts speichert, gibt es dort nichts zu manipulieren. Restrisiko: Eine andere App, die

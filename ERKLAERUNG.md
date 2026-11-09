@@ -479,6 +479,16 @@ meldet sich ab (`unregister`) und lädt offene Fenster neu – danach läuft die
 Das Manifest beschreibt Name, Farben und Icons. "Zum Home-Bildschirm hinzufügen" funktioniert weiterhin; die App
 startet aber nicht mehr offline (ohne Internet ist ohnehin kein Guthaben abrufbar).
 
+### 4.16 Veröffentlichung: `index.html`, `.nojekyll`, `.github/workflows/build-check.yml`
+
+GitHub Pages veröffentlicht das ganze Repository ("Deploy from a branch"). Die `index.html` im Hauptordner ist
+nur eine Weiterleitung: `<meta http-equiv="refresh" content="0; url=app/">` schickt den Browser sofort in den
+Ordner `app/`, ein Link dient als Ersatz. Ihre Content-Security-Policy `default-src 'none'` verbietet alles,
+weil die Seite nichts laden muss. `.nojekyll` (leere Datei) verhindert, dass GitHub die Dateien mit Jekyll
+umbaut. Der Workflow prüft bei jedem Push, dass `app/lib/vendor.js` aus `vendor-src/` reproduzierbar entsteht
+(`npm ci --ignore-scripts` installiert exakt die Versionen aus `package-lock.json`, ohne Installations-Skripte
+auszuführen; `git diff --exit-code` meldet jede Abweichung als Fehler).
+
 ---
 
 ## 5. Was die Tests beweisen – und was nicht
