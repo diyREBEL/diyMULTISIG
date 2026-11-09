@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="de-CH">
+<head>
+  <meta charset="utf-8">
+  <!-- Sicherheitsregeln für den Browser: nur Code von dieser Seite, keine fremden Skripte/Styles/Bilder.
+       Netzwerkzugriff nur über https (für den gewählten Blockchain-Server). -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src https:; media-src 'self' blob: mediastream:; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'">
+  <meta name="referrer" content="no-referrer">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b5560">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Multisig">
+  <title>DIY Multisig</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="css/style.css">
+  <script type="module" src="js/app.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><img src="icons/icon.svg" alt="" width="28" height="28"><span id="top-title">DIY Multisig</span></div>
+    <span id="net-badge" class="badge" hidden></span>
+  </header>
+
+  <main>
+    <!-- Meldungen (Fehler / Hinweise) -->
+    <div id="toast" class="toast" role="status" hidden></div>
+
+    <!-- ===== Start ohne Wallet ===== -->
+    <section id="scr-welcome" class="screen" hidden>
+      <h1>Multisig-Wallet</h1>
+      <p class="lead">Mehrere Schlüssel, eine Wallet. Zum Ausgeben müssen mehrere Signiergeräte zustimmen. Diese App hält keine privaten Schlüssel – sie baut nur Transaktionen und zeigt sie als QR-Code.</p>
+      <p class="note">Die App speichert nichts. Lade deine Wallet bei jedem Start aus dem Backup.</p>
+      <button class="btn primary big" id="load-scan">Backup-QR scannen</button>
+      <button class="btn big" id="load-file-btn">Backup-Datei öffnen</button>
+      <input type="file" id="load-file" accept=".txt,text/plain" hidden>
+      <button class="btn big" data-go="restore">Descriptor einfügen</button>
+      <button class="btn ghost" data-go="setup">Neue Wallet einrichten</button>
+    </section>
+
+    <!-- ===== Einrichtung Schritt 1: Regeln ===== -->
+    <section id="scr-setup-policy" class="screen" hidden>
+      <p class="step">Schritt 1 von 4</p>
+      <h1>Regeln festlegen</h1>
+      <label class="field">Name der Wallet
+        <input id="setup-name" maxlength="15" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="z.B. Familie">
+        <small>1–15 Zeichen: Buchstaben, Ziffern, _ oder -</small>
+      </label>
+      <div class="stepper-row">
+        <div class="stepper"><span>Schlüssel total</span>
+          <div><button class="btn round" id="n-minus" aria-label="weniger">−</button><output id="n-val">3</output><button class="btn round" id="n-plus" aria-label="mehr">+</button></div></div>
+        <div class="stepper"><span>Nötige Signaturen</span>
+          <div><button class="btn round" id="m-minus" aria-label="weniger">−</button><output id="m-val">2</output><button class="btn round" id="m-plus" aria-label="mehr">+</button></div></div>
+      </div>
+      <p class="policy-sentence" id="policy-sentence"></p>
+      <details class="adv"><summary>Erweitert: Netzwerk</summary>
+        <label class="field">Netzwerk
+          <select id="setup-network"><option value="main">Mainnet (echte Bitcoin)</option><option value="testnet4">Testnet4 (Test-Coins)</option><option value="signet">Signet (Test-Coins)</option></select>
+        </label>
+      </details>
+      <div class="actions"><button class="btn" data-go="back">Abbrechen</button><button class="btn primary" id="policy-next">Weiter</button></div>
+    </section>
+
+    <!-- ===== Einrichtung Schritt 2: Schlüssel sammeln ===== -->
+    <section id="scr-setup-keys" class="screen" hidden>
+      <p class="step">Schritt 2 von 4</p>
+      <h1>Schlüssel hinzufügen</h1>
+      <p>Exportiere auf jedem Signiergerät den <strong>Multisig</strong>-Schlüssel (<strong>Native SegWit</strong>) als QR-Code und scanne ihn.</p>
+      <details class="help"><summary>So geht's am Gerät</summary>
+        <p><strong>SeedSigner:</strong> Seed laden → Seeds → deinen Seed wählen → Export Xpub → Multisig → Native Segwit → als Koordinator "Sparrow" wählen.</p>
+        <p><strong>Jade:</strong> entsperren → Options → Wallet → Export Xpub → unten "Options": Wallet = Multisig, Script = Native Segwit.</p>
+        <p>Die App zeigt danach den Fingerabdruck an. Er muss mit dem Fingerabdruck auf dem Gerät übereinstimmen.</p>
+      </details>
+      <ol id="key-slots" class="slots"></ol>
+      <div class="actions"><button class="btn" id="keys-back">Zurück</button><button class="btn primary" id="keys-next" disabled>Weiter</button></div>
+    </section>
+
+    <!-- ===== Einrichtung Schritt 3: Prüfen ===== -->
+    <section id="scr-setup-review" class="screen" hidden>
+      <p class="step">Schritt 3 von 4</p>
+      <h1>Prüfen</h1>
+      <dl class="summary" id="review-summary"></dl>
+      <p>Erste Empfangsadresse:</p>
+      <p class="address" id="review-address"></p>
+      <div class="actions"><button class="btn" id="review-back">Zurück</button><button class="btn primary" id="review-create">Wallet erstellen</button></div>
+    </section>
+
+    <!-- ===== Schritt 4 / Einstellungen: Wallet auf Geräten registrieren + Backup ===== -->
+    <section id="scr-register" class="screen" hidden>
+      <p class="step" id="register-step">Schritt 4 von 4</p>
+      <h1>Geräte registrieren und sichern</h1>
+      <h2>1. Wallet-QR auf jedem Gerät scannen</h2>
+      <p>Damit kennt jedes Gerät die anderen Schlüssel und kann Empfangsadressen und Wechselgeld selbst prüfen.</p>
+      <div class="qrbox"><canvas id="register-qr" class="qr"></canvas>
+        <div class="density"><span>QR-Dichte</span><button class="btn small" data-density="0">tief</button><button class="btn small" data-density="1">mittel</button><button class="btn small" data-density="2">hoch</button></div></div>
+      <details class="help"><summary>So geht's am Gerät</summary>
+        <p><strong>Jade:</strong> im Hauptmenü "Scan" wählen und den animierten Code scannen. Jade zeigt alle Schlüssel an – vergleiche die Fingerabdrücke und bestätige. Jade speichert die Wallet dauerhaft.</p>
+        <p><strong>SeedSigner:</strong> speichert nichts dauerhaft. Vor dem Signieren: Scan → diesen Wallet-QR scannen. Dann kann SeedSigner das Wechselgeld prüfen. Darum diesen QR-Code auch ausdrucken (Descriptor als QR).</p>
+      </details>
+      <h2>2. Backup erstellen – jetzt!</h2>
+      <p><strong>Die App speichert nichts.</strong> Beim nächsten Start lädst du die Wallet aus diesem Backup. Drucke das Backup-Blatt aus (oder sichere es als PDF/Datei).</p>
+      <p>Der Descriptor ist der Bauplan der Wallet. <strong>Ohne ihn können die Seeds allein das Geld nicht wiederfinden.</strong> Lege bei jedem Seed-Backup ein Exemplar dazu. Er enthält keine privaten Schlüssel, verrät aber dein Guthaben.</p>
+      <button class="btn primary big" id="desc-print">Backup-Blatt drucken</button>
+      <textarea id="register-descriptor" class="mono" rows="6" readonly></textarea>
+      <p class="small">Prüfsumme: <strong class="fp" id="register-checksum"></strong> – notiere sie. Die App zeigt sie auf der Übersicht an; weicht sie je ab, wurde die Wallet verändert.</p>
+      <div class="actions wrap"><button class="btn" id="desc-copy">Kopieren</button><button class="btn" id="desc-download">Als Datei speichern</button><button class="btn" id="desc-qr">Als QR zeigen</button></div>
+      <div class="qrbox" id="desc-qr-box" hidden><canvas id="desc-qr-canvas" class="qr"></canvas></div>
+      <label class="check"><input type="checkbox" id="register-confirm"> Ich habe alle Geräte registriert und das Backup gedruckt oder gespeichert. Ohne Backup lässt sich die Wallet nach dem Schliessen nicht mehr laden.</label>
+      <div class="actions"><button class="btn primary" id="register-done" disabled>Fertig</button></div>
+    </section>
+
+    <!-- ===== Wiederherstellen ===== -->
+    <section id="scr-restore" class="screen" hidden>
+      <h1>Wallet laden</h1>
+      <p>Füge den Descriptor oder die Setup-Datei ein, oder scanne einen QR-Code (z.B. Backup-Export einer Jade).</p>
+      <textarea id="restore-text" class="mono" rows="7" spellcheck="false" autocapitalize="off" placeholder="wsh(sortedmulti(2,[…]xpub…/<0;1>/*,…))#…"></textarea>
+      <button class="btn" id="restore-scan">QR scannen</button>
+      <label class="field">Name der Wallet <input id="restore-name" maxlength="15" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="optional, sonst «Multisig»"></label>
+      <label class="field">Netzwerk
+        <select id="restore-network"><option value="main">Mainnet</option><option value="testnet4">Testnet4</option><option value="signet">Signet</option></select>
+      </label>
+      <div class="actions"><button class="btn" data-go="back">Abbrechen</button><button class="btn primary" id="restore-go">Laden</button></div>
+    </section>
+
+    <!-- ===== Übersicht ===== -->
+    <section id="scr-home" class="screen" hidden>
+      <div class="wallet-head">
+        <h1 id="home-name"></h1>
+        <span class="badge policy" id="home-policy"></span>
+      </div>
+      <p class="muted small" id="home-checksum"></p>
+      <div class="balance">
+        <div class="btc" id="home-balance">–</div>
+        <div class="sats" id="home-sats"></div>
+        <div class="pending" id="home-unconfirmed" hidden></div>
+        <div class="updated" id="home-updated">Noch nicht aktualisiert</div>
+      </div>
+      <div id="pending-banner" class="banner" hidden>
+        <span id="pending-text"></span><button class="btn small primary" id="pending-continue">Weiter signieren</button>
+      </div>
+      <div class="actions big">
+        <button class="btn primary big" id="go-receive">Empfangen</button>
+        <button class="btn primary big" id="go-send">Senden</button>
+      </div>
+      <button class="btn" id="home-refresh">Aktualisieren</button>
+      <h2>Münzen (UTXOs)</h2>
+      <ul class="coins" id="home-coins"><li class="muted">Noch keine Daten</li></ul>
+      <button class="btn ghost" id="go-settings">Einstellungen</button>
+      <p class="muted small center">Nichts wird gespeichert. Beim Schliessen der App ist die Wallet weg und wird beim nächsten Start aus dem Backup geladen.</p>
+    </section>
+
+    <!-- ===== Empfangen ===== -->
+    <section id="scr-receive" class="screen" hidden>
+      <h1>Empfangen</h1>
+      <div class="qrbox"><canvas id="receive-qr" class="qr"></canvas></div>
+      <p class="address big" id="receive-address"></p>
+      <p class="muted center" id="receive-index"></p>
+      <div class="actions wrap"><button class="btn" id="receive-copy">Kopieren</button><button class="btn" id="receive-next">Nächste Adresse</button></div>
+      <details class="help" open><summary>Adresse auf einem Gerät prüfen (empfohlen bei grossen Beträgen)</summary>
+        <p><strong>Jade</strong> (Wallet registriert): Scan → den QR-Code oben scannen → Jade meldet "Address verified".</p>
+        <p><strong>SeedSigner</strong>: Scan → den QR-Code oben scannen → Multisig wählen. Ist der Wallet-QR noch nicht geladen, fragt SeedSigner danach.</p>
+        <p>Nur so ist sicher, dass niemand die Adresse in dieser App ausgetauscht hat.</p>
+      </details>
+      <div class="actions"><button class="btn" data-go="home">Zurück</button></div>
+    </section>
+
+    <!-- ===== Senden: Eingabe ===== -->
+    <section id="scr-send" class="screen" hidden>
+      <h1>Senden</h1>
+      <label class="field">Empfängeradresse
+        <div class="inline"><input id="send-to" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="bc1…"><button class="btn" id="send-scan">Scannen</button></div>
+      </label>
+      <label class="field">Betrag
+        <div class="inline"><input id="send-amount" inputmode="decimal" autocomplete="off" placeholder="0.001"><button class="btn" id="send-unit">BTC</button><button class="btn" id="send-max">Alles</button></div>
+        <small id="send-available"></small>
+      </label>
+      <fieldset class="fees"><legend>Gebühr</legend>
+        <label><input type="radio" name="fee" value="fast"> Schnell <span id="fee-fast"></span></label>
+        <label><input type="radio" name="fee" value="medium" checked> Normal <span id="fee-medium"></span></label>
+        <label><input type="radio" name="fee" value="slow"> Langsam <span id="fee-slow"></span></label>
+        <label><input type="radio" name="fee" value="custom"> Eigene <input id="fee-custom" inputmode="decimal" size="5"> sat/vB</label>
+      </fieldset>
+      <div class="actions"><button class="btn" data-go="home">Abbrechen</button><button class="btn primary" id="send-next">Weiter</button></div>
+    </section>
+
+    <!-- ===== Senden: Prüfen ===== -->
+    <section id="scr-send-review" class="screen" hidden>
+      <h1>Transaktion prüfen</h1>
+      <dl class="summary" id="tx-summary"></dl>
+      <div id="tx-warnings"></div>
+      <label class="check"><input type="checkbox" id="tx-confirm"> Empfänger und Betrag stimmen. Ich prüfe sie zusätzlich auf jedem Signiergerät.</label>
+      <div class="actions"><button class="btn" id="review-cancel">Abbrechen</button><button class="btn primary" id="tx-to-sign" disabled>Zum Signieren</button></div>
+    </section>
+
+    <!-- ===== Signieren ===== -->
+    <section id="scr-sign" class="screen" hidden>
+      <h1>Signieren</h1>
+      <p id="sign-status" class="lead"></p>
+      <ol class="signers" id="sign-list"></ol>
+      <div class="qrbox"><canvas id="sign-qr" class="qr"></canvas>
+        <div class="density"><span>QR-Dichte</span><button class="btn small" data-density="0">tief</button><button class="btn small" data-density="1">mittel</button><button class="btn small" data-density="2">hoch</button></div></div>
+      <details class="help"><summary>So geht's</summary>
+        <p>1. Am Signiergerät <strong>Scan</strong> wählen und den animierten Code oben scannen.</p>
+        <p>2. Am Gerät Empfänger, Betrag und Gebühr prüfen und bestätigen.</p>
+        <p>3. Das Gerät zeigt einen neuen animierten Code. Hier "Signatur scannen" tippen und ihn scannen.</p>
+        <p>Wiederholen, bis genug Geräte signiert haben. Die Reihenfolge ist egal.</p>
+      </details>
+      <div class="actions"><button class="btn" id="sign-cancel">Verwerfen</button><button class="btn primary" id="sign-scan">Signatur scannen</button></div>
+      <button class="btn ghost" data-go="home">Später weitermachen</button>
+    </section>
+
+    <!-- ===== Senden: Abschluss ===== -->
+    <section id="scr-broadcast" class="screen" hidden>
+      <h1>Bereit zum Senden</h1>
+      <dl class="summary" id="final-summary"></dl>
+      <div class="actions"><button class="btn" data-go="home">Später</button><button class="btn primary" id="broadcast-go">Jetzt senden</button></div>
+    </section>
+
+    <section id="scr-done" class="screen" hidden>
+      <h1>Gesendet</h1>
+      <p class="lead">Die Transaktion ist unterwegs. Sie wird in der Regel innerhalb einiger Blöcke bestätigt.</p>
+      <p class="mono small" id="done-txid"></p>
+      <div class="actions wrap"><a class="btn" id="done-link" target="_blank" rel="noopener noreferrer">Im Explorer ansehen</a><button class="btn primary" data-go="home">Zur Übersicht</button></div>
+    </section>
+
+    <!-- ===== Einstellungen ===== -->
+    <section id="scr-settings" class="screen" hidden>
+      <h1>Einstellungen</h1>
+      <h2>Blockchain-Server</h2>
+      <p class="muted">Der Server sieht die Adressen dieser Wallet. Für mehr Privatsphäre eine eigene mempool- oder Esplora-Instanz (https) eintragen. Gilt bis zum Schliessen der App.</p>
+      <label class="field">Server-Adresse (API) <input id="set-server" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
+      <div class="actions wrap"><button class="btn" id="set-server-default">Standard</button><button class="btn primary" id="set-server-save">Testen und speichern</button></div>
+      <h2>Wallet</h2>
+      <div class="actions column">
+        <button class="btn" id="set-register">Wallet-QR, Descriptor und Backup-Blatt</button>
+        <button class="btn" id="set-close">Wallet schliessen</button>
+      </div>
+      <p class="muted small">"Wallet schliessen" entfernt die Wallet aus dem Arbeitsspeicher, z.B. um eine andere zu laden. Das Guthaben bleibt unberührt.</p>
+      <p class="muted small" id="set-version"></p>
+      <div class="actions"><button class="btn" data-go="home">Zurück</button></div>
+    </section>
+  </main>
+
+  <!-- ===== Scanner (über allem) ===== -->
+  <div id="scanner" class="scanner" hidden>
+    <div class="scanner-inner">
+      <p id="scanner-title" class="scanner-title"></p>
+      <video id="scanner-video" muted playsinline></video>
+      <progress id="scanner-progress" max="1" value="0"></progress>
+      <p id="scanner-msg" class="scanner-msg"></p>
+      <div class="actions wrap">
+        <button class="btn" id="scanner-paste">Stattdessen Text einfügen</button>
+        <button class="btn primary" id="scanner-cancel">Abbrechen</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Backup-Blatt: nur beim Drucken sichtbar ===== -->
+  <section id="print-sheet" class="print-sheet" aria-hidden="true">
+    <h1>Bitcoin-Multisig – Backup-Blatt</h1>
+    <p id="print-meta"></p>
+    <img id="print-qr" alt="Descriptor als QR-Code">
+    <p>Descriptor-Prüfsumme: <strong id="print-checksum"></strong></p>
+    <h2>Schlüssel (Fingerabdruck, Pfad, Gerät)</h2>
+    <ol id="print-keys"></ol>
+    <h2>Descriptor</h2>
+    <p class="mono" id="print-descriptor"></p>
+    <h2>So benutzt du dieses Blatt</h2>
+    <ul id="print-usage"></ul>
+  </section>
+
+  <!-- ===== Text-Eingabe (Ersatz, falls keine Kamera) ===== -->
+  <div id="paste" class="scanner" hidden>
+    <div class="scanner-inner">
+      <p class="scanner-title">Text einfügen</p>
+      <textarea id="paste-text" class="mono" rows="6" spellcheck="false" autocapitalize="off"></textarea>
+      <div class="actions"><button class="btn" id="paste-cancel">Abbrechen</button><button class="btn primary" id="paste-ok">Übernehmen</button></div>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,25 @@
+{
+  "name": "diy-multisig-vendor",
+  "version": "1.0.0",
+  "description": "Fremdbibliotheken der DIY-Multisig-Wallet",
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@noble/curves": "2.4.0",
+    "@noble/hashes": "2.4.0",
+    "@scure/base": "2.4.0",
+    "@scure/bip32": "2.4.0",
+    "@scure/btc-signer": "2.4.1",
+    "jsqr": "1.4.0",
+    "qrcode-generator": "2.0.4"
+  },
+  "devDependencies": {
+    "@keystonehq/bc-ur-registry": "0.8.1",
+    "@ngraveio/bc-ur": "1.1.13",
+    "esbuild": "0.28.2"
+  },
+  "private": true,
+  "type": "module"
+}
